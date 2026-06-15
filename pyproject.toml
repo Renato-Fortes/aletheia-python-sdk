@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aletheia"
+version = "0.1.0"
+description = "Official Python SDK for the Aletheia Rights API"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+keywords = ["voice", "rights", "clearance", "ai", "aletheia"]
+dependencies = [
+    "httpx>=0.24.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "respx>=0.20.0",
+]
+
+[project.urls]
+Homepage = "https://aletheiarights.com"
+Documentation = "https://docs.aletheiarights.com"
+Repository = "https://github.com/Renato-Fortes/aletheia-python-sdk"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["aletheia*"]
