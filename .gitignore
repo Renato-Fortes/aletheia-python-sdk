@@ -6,3 +6,7 @@ dist/
 .pytest_cache/
 *.db
 .env
+*.env
+.env.*
+secrets/
+private-keys.txt
