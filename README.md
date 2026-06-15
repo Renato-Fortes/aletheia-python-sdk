@@ -5,7 +5,7 @@ Official Python SDK for the [Aletheia Rights](https://aletheiarights.com) API â€
 ## Installation
 
 ```bash
-pip install aletheia
+pip install aletheia-rights
 ```
 
 Requires Python 3.9+ and `httpx`.

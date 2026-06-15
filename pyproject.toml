@@ -3,12 +3,12 @@ requires = ["setuptools>=68.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "aletheia"
+name = "aletheia-rights"
 version = "0.1.0"
 description = "Official Python SDK for the Aletheia Rights API"
 readme = "README.md"
 requires-python = ">=3.9"
-license = { text = "MIT" }
+license = "MIT"
 keywords = ["voice", "rights", "clearance", "ai", "aletheia"]
 dependencies = [
     "httpx>=0.24.0",
