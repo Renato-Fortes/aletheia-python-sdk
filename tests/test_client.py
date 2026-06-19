@@ -337,9 +337,125 @@ class TestVerify:
 
 class TestListLicenses:
     def test_raises_not_implemented(self, client):
-        with pytest.raises(NotImplementedError) as exc_info:
+        with pytest.raises(NotImplementedError):
             client.list_licenses()
-        assert str(exc_info.value) == "Available in v0.2.0"
+
+
+# ── aletheia.clear_by_audio() ──────────────────────────────────────────────────
+
+
+class TestClearByAudio:
+    @respx.mock
+    def test_match_cleared(self, client, tmp_path):
+        wav_file = tmp_path / "test.wav"
+        wav_file.write_bytes(b"RIFF\x24\x00\x00\x00WAVEfmt \x10\x00\x00\x00\x01\x00\x01\x00D\xac\x00\x00\x88X\x01\x00\x02\x00\x10\x00data\x00\x00\x00\x00")
+
+        respx.post(f"{BASE}/v1/clear-by-audio").mock(
+            return_value=httpx.Response(200, json={
+                "status": "cleared",
+                "license_id": "lic-audio-001",
+                "compliance_record_id": "cert-audio-001",
+                "creator": "Sarah Collins",
+                "amount_charged": 10.0,
+                "creator_payout": 8.5,
+                "platform_fee": 1.5,
+                "auto_matched": True,
+                "fingerprint_confidence": 0.92,
+                "fingerprint_scope": "output_audio_only",
+                "fingerprint_disclaimer": "Voice matching analyzes the submitted audio output only.",
+                "cleared_at": "2026-06-19T10:00:00Z",
+            })
+        )
+        result = client.clear_by_audio(str(wav_file), "commercial_ad", amount=10.0)
+
+        assert isinstance(result, ClearanceResponse)
+        assert result.is_cleared is True
+        assert result.auto_matched is True
+        assert result.fingerprint_confidence == 0.92
+        assert result.fingerprint_scope == "output_audio_only"
+        assert result.fingerprint_disclaimer is not None
+        assert result.license_id == "lic-audio-001"
+        assert result.creator == "Sarah Collins"
+
+    @respx.mock
+    def test_no_match_response(self, client, tmp_path):
+        wav_file = tmp_path / "other.wav"
+        wav_file.write_bytes(b"RIFF\x00\x00\x00\x00WAVEfmt ")
+
+        respx.post(f"{BASE}/v1/clear-by-audio").mock(
+            return_value=httpx.Response(200, json={
+                "status": "no_match",
+                "message": "No enrolled creator matched the submitted audio above the confidence threshold.",
+                "options": [
+                    {"type": "clear_by_name", "endpoint": "POST /v1/clear"},
+                    {"type": "enroll_voice", "note": "Enroll via POST /v1/creators/{id}/enroll-voice"},
+                ],
+            })
+        )
+        result = client.clear_by_audio(str(wav_file), "voiceover")
+
+        assert result.status == "no_match"
+        assert result.is_cleared is False
+        assert len(result.options) == 2
+        assert result.fingerprint_confidence is None
+        assert result.auto_matched is None
+
+    def test_file_not_found_raises(self, client):
+        with pytest.raises((FileNotFoundError, OSError)):
+            client.clear_by_audio("/nonexistent/path/audio.wav", "commercial_ad")
+
+    @respx.mock
+    def test_auth_error(self, client, tmp_path):
+        wav_file = tmp_path / "test.wav"
+        wav_file.write_bytes(b"RIFF\x00\x00\x00\x00WAVEfmt ")
+
+        respx.post(f"{BASE}/v1/clear-by-audio").mock(
+            return_value=httpx.Response(401, json={"detail": "Invalid API key"})
+        )
+        with pytest.raises(AuthenticationError):
+            client.clear_by_audio(str(wav_file), "commercial_ad")
+
+    @respx.mock
+    def test_optional_fields_sent_in_multipart(self, client, tmp_path):
+        wav_file = tmp_path / "sample.wav"
+        wav_file.write_bytes(b"RIFF\x00\x00\x00\x00WAVEfmt ")
+
+        route = respx.post(f"{BASE}/v1/clear-by-audio").mock(
+            return_value=httpx.Response(200, json={"status": "no_match", "message": "no match"})
+        )
+        client.clear_by_audio(
+            str(wav_file),
+            "podcast",
+            generation_id="gen-xyz",
+            amount=25.0,
+        )
+        body = route.calls[0].request.content
+        assert b"gen-xyz" in body
+        assert b"25.0" in body
+        assert b"podcast" in body
+
+    @respx.mock
+    def test_api_key_sent_in_header(self, client, tmp_path):
+        wav_file = tmp_path / "test.wav"
+        wav_file.write_bytes(b"RIFF\x00\x00\x00\x00WAVEfmt ")
+
+        route = respx.post(f"{BASE}/v1/clear-by-audio").mock(
+            return_value=httpx.Response(200, json={"status": "no_match"})
+        )
+        client.clear_by_audio(str(wav_file), "video")
+        assert route.calls[0].request.headers.get("x-api-key") == "ak_live_testkey1234567890"
+
+    @respx.mock
+    def test_mp3_mime_type(self, client, tmp_path):
+        mp3_file = tmp_path / "sample.mp3"
+        mp3_file.write_bytes(b"\xff\xfb\x90\x00" * 10)
+
+        route = respx.post(f"{BASE}/v1/clear-by-audio").mock(
+            return_value=httpx.Response(200, json={"status": "no_match"})
+        )
+        client.clear_by_audio(str(mp3_file), "commercial_ad")
+        ct = route.calls[0].request.headers.get("content-type", "")
+        assert "multipart/form-data" in ct
 
 
 # ── Client construction ────────────────────────────────────────────────────────

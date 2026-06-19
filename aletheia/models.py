@@ -6,12 +6,13 @@ from typing import Optional, List
 
 @dataclass
 class ClearanceResponse:
-    """Returned by aletheia.clear()."""
+    """Returned by aletheia.clear() and aletheia.clear_by_audio()."""
 
-    status: str  # "cleared" | "escrow" | "unresolved"
+    status: str  # "cleared" | "escrow" | "unresolved" | "no_match"
     license_id: Optional[str] = None
     compliance_record_id: Optional[str] = None
     certificate: Optional[dict] = None
+    certificate_pdf_url: Optional[str] = None
     cleared_at: Optional[str] = None
     creator: Optional[str] = None
     amount_charged: Optional[float] = None
@@ -22,6 +23,11 @@ class ClearanceResponse:
     estimated_resolution: Optional[str] = None
     clearance_attempt_id: Optional[str] = None
     options: Optional[List[dict]] = None
+    # Audio fingerprint fields (present when status comes from clear_by_audio)
+    fingerprint_confidence: Optional[float] = None
+    auto_matched: Optional[bool] = None
+    fingerprint_scope: Optional[str] = None
+    fingerprint_disclaimer: Optional[str] = None
 
     @classmethod
     def from_dict(cls, data: dict) -> ClearanceResponse:
@@ -30,6 +36,7 @@ class ClearanceResponse:
             license_id=data.get("license_id"),
             compliance_record_id=data.get("compliance_record_id"),
             certificate=data.get("certificate"),
+            certificate_pdf_url=data.get("certificate_pdf_url"),
             cleared_at=data.get("cleared_at"),
             creator=data.get("creator"),
             amount_charged=data.get("amount_charged"),
@@ -40,6 +47,10 @@ class ClearanceResponse:
             estimated_resolution=data.get("estimated_resolution"),
             clearance_attempt_id=data.get("clearance_attempt_id"),
             options=data.get("options"),
+            fingerprint_confidence=data.get("fingerprint_confidence"),
+            auto_matched=data.get("auto_matched"),
+            fingerprint_scope=data.get("fingerprint_scope"),
+            fingerprint_disclaimer=data.get("fingerprint_disclaimer"),
         )
 
     @property

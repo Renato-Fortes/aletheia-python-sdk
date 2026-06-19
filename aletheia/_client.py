@@ -14,7 +14,7 @@ from .exceptions import (
 from .models import ClearanceResponse, LicenseRecord, VerifyResponse
 from .resources import CreatorsResource
 
-_SDK_VERSION = "0.1.0"
+_SDK_VERSION = "0.2.0"
 _USER_AGENT = f"aletheia-python/{_SDK_VERSION}"
 
 
@@ -53,7 +53,7 @@ class Aletheia:
 
         self._http = httpx.Client(
             timeout=timeout,
-            headers={**_common_headers, "X-API-Key": api_key, "Content-Type": "application/json"},
+            headers={**_common_headers, "X-API-Key": api_key},
         )
 
         # Separate client for the public /verify/* endpoint — no auth header.
@@ -164,12 +164,65 @@ class Aletheia:
         data = self._public_get(f"/verify/{certificate_id}")
         return VerifyResponse.from_dict(data)
 
-    def list_licenses(self):
-        """List all licenses for this API key.
+    def clear_by_audio(
+        self,
+        file_path: str,
+        use_type: str,
+        *,
+        generation_id: Optional[str] = None,
+        amount: Optional[float] = None,
+    ) -> ClearanceResponse:
+        """POST /v1/clear-by-audio — identify creator by audio fingerprint and clear rights.
 
-        Not yet implemented — available in v0.2.0.
+        Submits an MP3 or WAV file (max 60 seconds) for MFCC-based voice matching
+        against enrolled creator voice samples. If a match is found above the 0.85
+        confidence threshold, proceeds with a full clearance.
+
+        This method analyses the submitted audio OUTPUT only. It identifies whether
+        generated content resembles a registered creator's voice at the point of
+        commercial use. It does not determine what data was used to train any AI model.
+
+        Args:
+            file_path:     Path to an MP3 or WAV file.
+            use_type:      One of: commercial_ad, voiceover, podcast, video, other.
+            generation_id: Optional ID of the AI-generated audio asset.
+            amount:        Override the creator's default rate (USD, positive).
+
+        Returns:
+            ClearanceResponse. Check ``.status``:
+              - ``"cleared"``   — match found, rights cleared, fingerprint_confidence set.
+              - ``"no_match"``  — no enrolled creator matched above the threshold.
+              - ``"pending_stripe"`` — matched but creator hasn't connected Stripe yet.
+
+        Raises:
+            ValidationError: File type not accepted or use_type invalid.
+            AletheiaAPIError: Server-side processing error.
         """
-        raise NotImplementedError("Available in v0.2.0")
+        import os as _os
+        ext = _os.path.splitext(file_path)[1].lower()
+        mime = "audio/mpeg" if ext == ".mp3" else "audio/wav"
+        filename = _os.path.basename(file_path)
+
+        with open(file_path, "rb") as fh:
+            file_bytes = fh.read()
+
+        fields: dict = {"use_type": use_type}
+        if generation_id is not None:
+            fields["generation_id"] = generation_id
+        if amount is not None:
+            fields["amount"] = str(amount)
+
+        resp = self._http.post(
+            self._url("/v1/clear-by-audio"),
+            files={"file": (filename, file_bytes, mime)},
+            data=fields,
+        )
+        self._raise_for_status(resp)
+        return ClearanceResponse.from_dict(resp.json())
+
+    def list_licenses(self):
+        """List all licenses for this API key — not yet implemented."""
+        raise NotImplementedError("list_licenses is not yet available")
 
     # ── Context manager ────────────────────────────────────────────────────────
 
