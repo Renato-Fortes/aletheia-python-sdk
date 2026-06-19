@@ -81,15 +81,48 @@ print(cert.valid, cert.record_type)  # True, "license_certificate"
 
 ---
 
+### `client.clear_by_audio(file_path, use_type, *, generation_id=None, amount=None)`
+
+Submits an MP3 or WAV audio file for MFCC-based voice fingerprint matching. If the audio resembles a registered creator's voice above the confidence threshold, rights are cleared automatically. Maps to `POST /v1/clear-by-audio`.
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `file_path` | str | ✓ | Path to a local `.mp3` or `.wav` file (max 60 seconds) |
+| `use_type` | str | ✓ | One of: `commercial_ad`, `voiceover`, `podcast`, `video`, `other` |
+| `generation_id` | str | | ID of the AI-generated audio asset |
+| `amount` | float | | Override the creator's default rate (USD, positive) |
+
+Returns a `ClearanceResponse`. Check `.status`:
+- `"cleared"` — match found, rights cleared; `.fingerprint_confidence` is set (0–1)
+- `"no_match"` — no enrolled creator matched above the 0.85 threshold
+- `"pending_stripe"` — matched but creator hasn't connected Stripe yet
+
+```python
+result = client.clear_by_audio(
+    "path/to/generated_output.wav",
+    use_type="commercial_ad",
+    generation_id="gen-abc123",
+)
+
+if result.status == "cleared":
+    print(f"Matched creator:  {result.creator}")
+    print(f"Confidence:       {result.fingerprint_confidence:.2f}")
+    print(f"License ID:       {result.license_id}")
+elif result.status == "no_match":
+    print("No registered creator matched this audio.")
+```
+
+---
+
 ### `client.list_licenses()`
 
-Not yet implemented — raises `NotImplementedError("Available in v0.2.0")`.
+Not yet implemented — raises `NotImplementedError`.
 
 ## Response models
 
 | Model | Returned by |
 |---|---|
-| `ClearanceResponse` | `clear()` |
+| `ClearanceResponse` | `clear()`, `clear_by_audio()` |
 | `LicenseRecord` | `get_license()` |
 | `CreatorsListResponse` | `creators.list()` |
 | `VerifyResponse` | `verify()` |
